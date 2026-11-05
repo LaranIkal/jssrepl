@@ -1,0 +1,54 @@
+
+
+bash
+
+##############################
+# ===>>> General files <<<===
+##############################
+.directory
+*.class
+bash
+
+##############################
+# ===>>> VS Code files for those working on multiple tools <<<===
+##############################
+
+.vscode/*
+*.code-workspace
+
+
+# ===>>> Annoying :)
+.bloop/
+.metals/
+.scala-build/
+
+
+##############################
+## Java
+##############################
+*.class
+*.war
+*.ear
+*.nar
+hs_err_pid*
+.mtj.tmp/
+
+
+##############################
+## Maven
+##############################
+target/
+!jssrepl.jar
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+pom.xml.bak
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+
+

@@ -1,0 +1,132 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>jss</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Aligned with graalvm-community-jdk-25 (25.0.4.1). Bump to whatever
+         is newest on Maven Central if you like:
+         https://mvnrepository.com/artifact/org.graalvm.polyglot/js-community -->
+    <graal.version>25.0.4.1</graal.version>
+    <jline.version>3.30.15</jline.version>
+  </properties>
+
+  <dependencies>
+    <!-- Polyglot embedding API -->
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>polyglot</artifactId>
+      <version>${graal.version}</version>
+    </dependency>
+
+    <!-- GraalJS engine (Community Edition, GraalVM Community-friendly license).
+         Use artifactId "js" instead of "js-community" if you specifically
+         want the Oracle GraalVM (GFTC-licensed) build.
+
+         truffle-runtime is excluded on purpose: it's the *optimizing*
+         (libgraal) runtime, and pulling it in via plain Maven/classpath
+         wiring can hit native-library mismatches (UnsatisfiedLinkError on
+         attachThreadTo, etc.) depending on exactly how the JVM is launched.
+         Excluding it makes GraalJS fall back to plain interpreted
+         execution (slower for CPU-heavy scripts, but rock solid for a
+         REPL), and it sidesteps native-library loading entirely. See:
+         https://www.graalvm.org/latest/reference-manual/embed-languages/#runtime-optimization-support -->
+    <dependency>
+      <groupId>org.graalvm.polyglot</groupId>
+      <artifactId>js-community</artifactId>
+      <version>${graal.version}</version>
+      <type>pom</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.graalvm.truffle</groupId>
+          <artifactId>truffle-runtime</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Line editing for the REPL: cursor movement, custom history recall.
+         jline-terminal's built-in "exec" provider (stty/tput via a
+         subprocess) needs no extra native jar on Linux/macOS. -->
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline-reader</artifactId>
+      <version>${jline.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline-terminal</artifactId>
+      <version>${jline.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+
+      <!-- Produces a self-contained jssrepl.jar with all dependencies.
+           NOTE: shade needs the plain jar-plugin output as an input (it IS
+           your compiled classes), so that plain jar still gets built under
+           Maven's default name (target/jss-1.0.0.jar), which is normal and
+           required, not a bug. What we control here is that the SHADED jar
+           gets its own explicit name/filename (outputFile) instead of
+           overwriting that plain jar, and is attached as a separate
+           artifact (shadedArtifactAttached) rather than replacing the main
+           one. Because the two never share a filename, shade never needs
+           to rename anything out of the way, so no "original-*.jar" backup
+           is ever created.
+           GraalVM's own docs recommend AGAINST uber jars for Graal
+           languages in general because merging breaks Truffle's
+           Multi-Release class layout unless configured exactly like this.
+           See: https://www.graalvm.org/latest/reference-manual/embed-languages/#uber-jar-file-creation -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <outputFile>${project.build.directory}/jssrepl.jar</outputFile>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>JsRepl</mainClass>
+                  <manifestEntries>
+                    <Multi-Release>true</Multi-Release>
+                  </manifestEntries>
+                </transformer>
+              </transformers>
+              <filters>
+                <!-- Signature files become invalid once contents are merged -->
+                <filter>
+                  <artifact>*:*:*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
